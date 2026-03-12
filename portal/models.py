@@ -29,7 +29,7 @@ class studentdata(models.Model):
     trained=models.BooleanField(default=False)
     certified=models.BooleanField(default=False)
     placed=models.BooleanField(default=False)
-    
+
     def __str__(self):
         return f"{self.name}-{self.course_name}({self.caste_category})"
 

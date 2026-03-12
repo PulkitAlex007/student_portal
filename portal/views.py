@@ -1,18 +1,52 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.http import JsonResponse
+import pandas as pd
+from .forms import StudentDataForm
 
-
+from .forms import ExcelUploadForm
 # Create your views here.
 def dashboard(request):
     return render(request,"dashboard.html")
 
+
+
+
 def upload(request):
-    return render(request,"upload.html")
+    if request.method == 'POST':
+        form = ExcelUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            excel_file = request.FILES['file']
+
+            # Read Excel into DataFrame
+            df = pd.read_excel(excel_file)
+
+            # Loop through each row and save using ModelForm
+            for _, row in df.iterrows():
+                data = {
+                    'session': row.get('session'),
+                    'name': row.get('name'),
+                    'course_name': row.get('course_name'),
+                    'course_hour': row.get('course_hour'),
+                    'scheme': row.get('scheme'),
+                    'mode': row.get('mode'),
+                    'caste_category': row.get('caste_category'),
+                    'center_name': row.get('center_name'),
+                    'trained': row.get('trained', False),
+                    'certified': row.get('certified', False),
+                    'placed': row.get('placed', False),
+                }
+                StudentDataForm(data).save()
+
+            return redirect('upload_excel')  # Redirect back or anywhere you want
+    else:
+        form = ExcelUploadForm()
+
+    return render(request, 'upload.html', {'form': form})
 
 
-from django.http import JsonResponse
-from .models import studentdata
+def filter_data(request):
+    query = request.GET.get("q")
 
 
 from django.http import JsonResponse
