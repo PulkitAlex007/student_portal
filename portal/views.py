@@ -14,8 +14,10 @@ def upload(request):
 from django.http import JsonResponse
 from .models import studentdata
 
+
 from django.http import JsonResponse
 from .models import studentdata
+
 
 def filter_students(request):
 
@@ -33,17 +35,31 @@ def filter_students(request):
 
     if caste:
         students = students.filter(caste_category=caste)
+
+    data = []
+
+    for student in students:
+
+        hours = student.course_hour
+
+        # Course category logic
+        if hours > 500:
+            category = "B - Long Term Course"
+        elif 90 <= hours <= 500:
+            category = "C - Short Term Course"
+        elif hours < 90:
+            category = "D - Short Term Course"
+        else:
+            category = "E - DLC (CCC/CCC+/BCC)"
+
+        data.append({
+            "name": student.name,
+            "course_name": student.course_name,
+            "course_hour": student.course_hour,
+            "course_category": category,
+            "center_name": student.center_name,
+            "mode": student.mode,
+            "caste_category": student.caste_category,
+        })
     
-
-    data = list(students.values(
-        "name",
-        "course_name",
-        "center_name",
-        "mode",
-        "caste_category",
-        "trained",
-        "certified",
-        "placed"
-    ))
-
-    return JsonResponse({"results":data})
+    return JsonResponse({"results": data})

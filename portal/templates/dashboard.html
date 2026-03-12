@@ -1,34 +1,53 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Dashboard</h1>
-<hr style="margin-top:0.5rem;">
+<h2>Student Dashboard</h2>
+
 <div class="filters">
-    <select id="centerFilter">
-    <option value="">All Centers</option>
-    <option value="inderlok">Inderlok</option>
-    <option value="janakpuri">Janakpuri</option>
-    <option value="karkardooma">Karkardooma</option>
+
+<select id="centerFilter">
+<option value="">All Centers</option>
+<option value="inderlok">Inderlok</option>
+<option value="janakpuri">Janakpuri</option>
+<option value="karkardooma">Karkardooma</option>
 </select>
 
 <select id="modeFilter">
-    <option value="">All Mode</option>
-    <option value="offline">Offline</option>
-    <option value="online">Online</option>
+<option value="">All Mode</option>
+<option value="offline">Offline</option>
+<option value="online">Online</option>
 </select>
 
 <select id="casteFilter">
-    <option value="">All Caste</option>
-    <option value="OBC">OBC</option>
-    <option value="SC">SC</option>
-    <option value="ST">ST</option>
-    <option value="PWD">PWD</option>
-    <option value="GENERAL">GENERAL</option>
+<option value="">All Caste</option>
+<option value="OBC">OBC</option>
+<option value="SC">SC</option>
+<option value="ST">ST</option>
+<option value="PWD">PWD</option>
+<option value="GENERAL">GENERAL</option>
 </select>
 
-
 </div>
-<div id="results"></div>
+
+
+<table border="1" width="100%">
+<thead>
+<tr>
+<th>Name</th>
+<th>Course</th>
+<th>Hours</th>
+<th>Category</th>
+<th>Center</th>
+<th>Mode</th>
+<th>Caste</th>
+</tr>
+</thead>
+
+<tbody id="results">
+
+</tbody>
+
+</table>
 
 <script>
 
@@ -43,14 +62,20 @@ fetch(`/filter-students/?center=${center}&mode=${mode}&caste=${caste}`)
 .then(data => {
 
 let results = document.getElementById("results");
-results.innerHTML="";
+results.innerHTML = "";
 
 data.results.forEach(student => {
 
 results.innerHTML += `
-<p>
-${student.name} - ${student.course_name} - ${student.center_name} - ${student.mode}
-</p>
+<tr>
+<td>${student.name}</td>
+<td>${student.course_name}</td>
+<td>${student.course_hour}</td>
+<td>${student.course_category}</td>
+<td>${student.center_name}</td>
+<td>${student.mode}</td>
+<td>${student.caste_category}</td>
+</tr>
 `;
 
 });
@@ -59,9 +84,24 @@ ${student.name} - ${student.course_name} - ${student.center_name} - ${student.mo
 
 }
 
+
 document.getElementById("centerFilter").addEventListener("change", filterStudents);
 document.getElementById("modeFilter").addEventListener("change", filterStudents);
 document.getElementById("casteFilter").addEventListener("change", filterStudents);
 
+
+window.onload = filterStudents;
+results.innerHTML += `
+<tr>
+<td data-label="Name">${student.name}</td>
+<td data-label="Course">${student.course_name}</td>
+<td data-label="Hours">${student.course_hour}</td>
+<td data-label="Category">${student.course_category}</td>
+<td data-label="Center">${student.center_name}</td>
+<td data-label="Mode">${student.mode}</td>
+<td data-label="Caste">${student.caste_category}</td>
+</tr>
+`;
 </script>
+
 {% endblock content %}
