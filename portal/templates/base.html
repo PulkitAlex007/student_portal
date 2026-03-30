@@ -16,6 +16,7 @@
         </div>
         <div class="hero">
             <div class="left-nav">
+                <button id="sidebarToggle" class="sidebar-toggle" aria-label="Toggle sidebar">☰</button>
                 <div class="ul">
                     <li class="libtn {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                         <a href="{% url 'dashboard' %}" class="at">Dashboard</a>
@@ -30,6 +31,9 @@
                     </li>
                     <li class="libtn {% if request.resolver_match.url_name == 'download' %}active{% endif %}">
                         <a href="{% url 'input' %}" class="at">Add Student</a>
+                    </li>
+                    <li class="libtn {% if request.resolver_match.url_name == 'download' %}active{% endif %}">
+                        <a href="{% url 'overview' %}" class="at">Overview</a>
                     </li>
                     {% if user.is_authenticated %}
                         <li><a href="{% url 'logout' %}" class="logout">Logout</a></li>
@@ -54,6 +58,26 @@
                 $(".libtn").removeClass("active")
                 $(this).addClass("active")
             })
+
+            const body = document.body;
+            const toggle = document.getElementById('sidebarToggle');
+            const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+
+            function setCollapsed(value) {
+                localStorage.setItem('sidebarCollapsed', value);
+                if (value) {
+                    body.classList.add('sidebar-collapsed');
+                } else {
+                    body.classList.remove('sidebar-collapsed');
+                }
+            }
+
+            setCollapsed(collapsed);
+
+            toggle.addEventListener('click', () => {
+                const isCollapsed = body.classList.toggle('sidebar-collapsed');
+                setCollapsed(isCollapsed);
+            });
         })
     </script>
 </body>

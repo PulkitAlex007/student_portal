@@ -443,3 +443,109 @@ register = template.Library()
 @register.filter(name='add_class')
 def add_class(field, css_class):
     return field.as_widget(attrs={"class": css_class})
+
+
+def get_summary_for_queryset(queryset):
+    summary = {
+        'Total': queryset.count(),
+        'SC': 0,
+        'ST': 0,
+        'OBC': 0,
+        'PWD': 0,
+        'GENERAL': 0,
+        'B': 0,
+        'C': 0,
+        'D': 0,
+        'E': 0,
+    }
+    for s in queryset:
+        caste = s.caste_category
+        if caste in summary:
+            summary[caste] += 1
+
+        course_cat = (s.course_category or '').strip().upper()
+        if course_cat.startswith('B'):
+            summary['B'] += 1
+        elif course_cat.startswith('C'):
+            summary['C'] += 1
+        elif course_cat.startswith('D'):
+            summary['D'] += 1
+        elif course_cat.startswith('E'):
+            summary['E'] += 1
+
+    return summary
+
+
+@login_required(login_url='/login')
+def overview(request):
+    selected_session = request.GET.get('session', '')
+
+    students = studentdata.objects.all()
+    if selected_session:
+        students = students.filter(session=selected_session)
+
+    centers = [
+        ('Inderlok', get_summary_for_queryset(students.filter(center_name='inderlok'))),
+        ('Janakpuri', get_summary_for_queryset(students.filter(center_name='janakpuri'))),
+        ('Karkardooma', get_summary_for_queryset(students.filter(center_name='karkardooma'))),
+    ]
+
+    sessions = list(
+        studentdata.objects
+            .values_list('session', flat=True)
+            .distinct()
+            .order_by('-session')
+    )
+
+    context = {
+        'all_record': students.count(),
+        'centers': centers,
+        'sessions': sessions,
+        'selected_session': selected_session,
+    }
+
+    return render(request, 'overview.html', context)
+
+
+
+
+
+# old summary code removed; overview is now implemented above with dynamic sessions and optional filters
+
+
+@login_required(login_url='/login')
+def overview_data(request):
+    selected_session = request.GET.get('session', '')
+
+    students = studentdata.objects.all()
+    if selected_session:
+        students = students.filter(session=selected_session)
+
+    centers = [
+        {
+            'name': 'Inderlok',
+            'stats': get_summary_for_queryset(students.filter(center_name='inderlok'))
+        },
+        {
+            'name': 'Janakpuri',
+            'stats': get_summary_for_queryset(students.filter(center_name='janakpuri'))
+        },
+        {
+            'name': 'Karkardooma',
+            'stats': get_summary_for_queryset(students.filter(center_name='karkardooma'))
+        },
+    ]
+
+    sessions = list(
+        studentdata.objects
+            .values_list('session', flat=True)
+            .distinct()
+            .order_by('-session')
+    )
+
+    return JsonResponse({
+        'all_record': students.count(),
+        'centers': centers,
+        'sessions': sessions,
+        'selected_session': selected_session,
+    })

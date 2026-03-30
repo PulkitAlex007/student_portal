@@ -69,6 +69,30 @@ body {
     display: flex;
     flex: 1;
     min-height: calc(100vh - 91px);
+    transition: all 0.25s ease;
+}
+
+.sidebar-collapsed .left-nav {
+    width: 64px;
+    min-width: 64px;
+    padding: 0.75rem 0.35rem;
+    opacity: 1;
+    pointer-events: auto;
+    overflow: hidden;
+    box-shadow: none;
+    transition: all 0.25s ease;
+}
+
+.sidebar-collapsed .left-nav > .ul {
+    display: none;
+}
+
+.sidebar-collapsed .left-nav .sidebar-toggle {
+    right: 10px;
+}
+
+.sidebar-collapsed .right-div {
+    padding-left: 1.5rem;
 }
 
 /* ─── LEFT SIDEBAR ───────────────────────────────────────── */
@@ -77,13 +101,44 @@ body {
     min-width: 210px;
     background: var(--navy);
     display: flex;
+    /* height: 100%; */
     flex-direction: column;
-    padding: 1.25rem 0 2rem;
+    padding: 0.75rem 0 1rem;
     box-shadow: 2px 0 12px rgba(13,33,55,0.2);
     position: sticky;
-    top: 91px;
-    height: calc(100vh - 91px);
-    overflow-y: auto;
+    /* top: 91px; */
+    /* height: calc(100vh - 10px);
+     */
+     /* height:300vh; */
+    /* overflow-y: auto; */
+    position: relative;
+}
+
+.left-nav .sidebar-toggle {
+    position: absolute;
+    /* top: 0.55rem; */
+    /* right: -18px; */
+    width: 36px;
+    /* height: 36px; */
+    line-height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--navy);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1rem;
+    z-index: 260;
+    transition: all 0.2s ease;
+}
+
+.left-nav .sidebar-toggle:hover {
+    background: var(--blue);
+    color: #fff;
+    border-color: var(--blue);
 }
 
 .left-nav > .ul {
@@ -1494,6 +1549,89 @@ table td small {
     #editModal { padding: 10px; }
 }
 
+.left-nav {
+    position: relative;
+}
 
+.sidebar-toggle {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--navy);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+    cursor: pointer;
+    z-index: 260;
+}
+
+.sidebar-toggle:hover {
+    background: var(--blue);
+    color: #fff;
+    border-color: var(--blue);
+}
+
+.sidebar-collapsed .left-nav {
+    width: 64px;
+    min-width: 64px;
+    padding: 0.75rem 0.35rem;
+    opacity: 1;
+    pointer-events: auto;
+    overflow: hidden;
+    box-shadow: none;
+}
+
+.sidebar-collapsed .left-nav > .ul {
+    display: none;
+}
+
+.sidebar-collapsed .left-nav .sidebar-toggle {
+    right: 10px;
+}
+
+.sidebar-collapsed .right-div {
+    width: 100%;
+    padding-left: 1.5rem;
+}
+
+.overview-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(245,248,252,0.95));
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.overview-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.overview_card_header {
+    color: var(--blue);
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.overview_table th,
+.overview_table td {
+    color: var(--text-muted);
+    font-size: 13px;
+    padding: 0.45rem 0.55rem;
+}
+
+.overview_table td:first-child {
+    color: var(--text);
+    font-weight: 600;
+}
 
 /*======FORM=====*/
