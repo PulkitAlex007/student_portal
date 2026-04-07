@@ -80,7 +80,7 @@ def upload(request):
                 ]
 
                 success_count = 0
-               
+                error_count = 0
                 duplicate_count = 0
 
                 # 🔥 Existing roll numbers (fast lookup)
@@ -151,10 +151,67 @@ def upload(request):
                         trained_date = session_label if trained else ''
                         certified_date = session_label if certified else ''
 
+                        # Extract all other personal details
+                        father_name = str(row_data.get('father_name') or '').strip()
+                        mother_name = str(row_data.get('mother_name') or '').strip()
+                        batch_code = str(row_data.get('batch_code') or '').strip().upper()
+                        gender = str(row_data.get('gender') or 'Male').strip()
+                        address = str(row_data.get('address') or '').strip()
+                        qualifications = str(row_data.get('qualifications') or '').strip()
+                        
+                        # Handle aadhaar - ensure it's stored as string, not scientific notation
+                        aadhaar_val = row_data.get('aadhaar')
+                        if aadhaar_val:
+                            aadhaar = str(int(float(aadhaar_val))).strip() if isinstance(aadhaar_val, (int, float)) else str(aadhaar_val).strip()
+                        else:
+                            aadhaar = ''
+                        
+                        # Parse DOB if exists - must be datetime.date object
+                        dob = None
+                        dob_val = row_data.get('dob')
+                        if dob_val:
+                            try:
+                                # openpyxl returns datetime.datetime for date cells
+                                if hasattr(dob_val, 'date'):
+                                    dob = dob_val.date()
+                                elif isinstance(dob_val, str):
+                                    from datetime import datetime
+                                    dob = datetime.strptime(dob_val, '%Y-%m-%d').date()
+                                else:
+                                    dob = None
+                            except Exception as dob_err:
+                                print(f"DOB parse error: {dob_err}")
+                                dob = None
+                        
+                        # Parse fee_date if exists - must be datetime.date object
+                        fee_date = None
+                        fee_date_val = row_data.get('fee_date')
+                        if fee_date_val:
+                            try:
+                                # openpyxl returns datetime.datetime for date cells
+                                if hasattr(fee_date_val, 'date'):
+                                    fee_date = fee_date_val.date()
+                                elif isinstance(fee_date_val, str):
+                                    from datetime import datetime
+                                    fee_date = datetime.strptime(fee_date_val, '%Y-%m-%d').date()
+                                else:
+                                    fee_date = None
+                            except Exception as fd_err:
+                                print(f"Fee date parse error: {fd_err}")
+                                fee_date = None
+
                         student = studentdata(
                             session=session_label,
+                            batch_code=batch_code,
                             roll_number=roll_number,
                             name=name,
+                            father_name=father_name,
+                            mother_name=mother_name,
+                            dob=dob,
+                            gender=gender,
+                            address=address,
+                            qualifications=qualifications,
+                            aadhaar=aadhaar,
                             course_name=course_name,
                             course_hour=course_hour,
                             scheme=scheme,
@@ -163,6 +220,7 @@ def upload(request):
                             caste_category=caste,
                             center_name=center,
                             fee=fee,
+                            fee_date=fee_date,
                             trained=trained,
                             trained_date=trained_date,
                             certified=certified,
@@ -178,12 +236,14 @@ def upload(request):
                             existing_rolls.add(roll_number)
 
                     except Exception as e:
-                       
-                        print(f"Row error: {e}")
+                        error_count += 1
+                        print(f"Row error: {str(e)}")
+                        import traceback
+                        traceback.print_exc()
 
                 messages.success(
                     request,
-                    f'Uploaded: {success_count} | Duplicate skipped: {duplicate_count}'
+                    f'Uploaded: {success_count} | Duplicate skipped: {duplicate_count} | Errors: {error_count}'
                 )
 
             except Exception as e:
@@ -210,8 +270,10 @@ def filter_students(request):
     certified = request.GET.get('certified')
     placed    = request.GET.get('placed')
     session   = request.GET.get('session')
-    scheme = request.GET.get('scheme')
-    nsqf   = request.GET.get('nsqf')   # 'yes' / 'no'
+    scheme    = request.GET.get('scheme')
+    nsqf      = request.GET.get('nsqf')       # 'yes' / 'no'
+    quarterly = request.GET.get('quarterly')  # 'Q1-trained', 'Q1-certified', etc.
+    year      = request.GET.get('year')       # '2024', '2025', etc.
 
     if center:
         students = students.filter(center_name=center)
@@ -236,6 +298,71 @@ def filter_students(request):
             students = students.exclude(nsqf='').exclude(nsqf__isnull=True)
         elif nsqf == 'no':
             students = students.filter(nsqf='') | students.filter(nsqf__isnull=True)
+
+    # Helper function to get quarter from date string like "JAN-2024"
+    def get_quarter_from_date(date_str):
+        """Extract quarter and year from date string like 'JAN-2024'"""
+        if not date_str:
+            return None, None
+        try:
+            parts = date_str.split('-')
+            if len(parts) < 2:
+                return None, None
+            month_str = parts[0].upper()
+            year_str = parts[1]
+            
+            month_map = {
+                'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4,
+                'MAY': 5, 'JUN': 6, 'JUL': 7, 'AUG': 8,
+                'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12
+            }
+            
+            month = month_map.get(month_str)
+            if month is None:
+                return None, year_str
+            
+            # Q1: Jan-Mar (1-3), Q2: Apr-Jun (4-6), Q3: Jul-Sep (7-9), Q4: Oct-Dec (10-12)
+            quarter = (month - 1) // 3 + 1
+            return f'Q{quarter}', year_str
+        except:
+            return None, None
+
+    # Filter by quarterly status
+    if quarterly:
+        # quarterly format: "Q1-trained" or "Q1-certified"
+        quarter_part, status_type = quarterly.split('-') if '-' in quarterly else (quarterly, '')
+        
+        filtered_students = []
+        for s in students:
+            if status_type == 'trained' and s.trained_date:
+                q, y = get_quarter_from_date(s.trained_date)
+                if q == quarter_part and (not year or y == year):
+                    filtered_students.append(s)
+            elif status_type == 'certified' and s.certified_date:
+                q, y = get_quarter_from_date(s.certified_date)
+                if q == quarter_part and (not year or y == year):
+                    filtered_students.append(s)
+        
+        students = filtered_students
+    elif year:
+        # Year filter only (without quarterly)
+        filtered_students = []
+        for s in students:
+            if s.trained_date:
+                _, y = get_quarter_from_date(s.trained_date)
+                if y == year:
+                    filtered_students.append(s)
+                    continue
+            if s.certified_date:
+                _, y = get_quarter_from_date(s.certified_date)
+                if y == year:
+                    filtered_students.append(s)
+                    continue
+            # Also include if session contains year
+            if s.session and year in s.session:
+                filtered_students.append(s)
+        
+        students = filtered_students
 
     data = [
     {
@@ -462,34 +589,6 @@ def update_student(request, student_id):
         tb = traceback.format_exc()
         print(f"Update student error: {error_msg}\n{tb}")
         return JsonResponse({'success': False, 'error': error_msg}, status=400)
-
-    # trained logic
-    new_trained = body.get('trained', student.trained)
-    if new_trained and not student.trained:
-        # just switched ON — auto-set date
-        student.trained_date = current_month
-    elif not new_trained:
-        # switched OFF — clear date
-        student.trained_date = ''
-    student.trained = new_trained
-
-    # certified logic
-    new_certified = body.get('certified', student.certified)
-    if new_certified and not student.certified:
-        student.certified_date = current_month
-    elif not new_certified:
-        student.certified_date = ''
-    student.certified = new_certified
-
-    student.save()
-
-    return JsonResponse({
-        'success':          True,
-        'course_category':  student.course_category,
-        'claimable_amount': float(student.claimable_amount),
-        'trained_date':     student.trained_date,
-        'certified_date':   student.certified_date,
-    })
 
 def inputView(request):
     if request.method=='POST':

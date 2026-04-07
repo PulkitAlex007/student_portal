@@ -73,19 +73,37 @@ class studentdata(models.Model):
     claimable_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     fee_date         = models.DateField(null=True, blank=True)
     trained          = models.BooleanField(default=False ,)
-    trained_date     = models.CharField(max_length=20, blank=True, null=True)
+    trained_date     = models.CharField(null=True, blank=True)
     certified        = models.BooleanField(default=False)
-    certified_date   = models.CharField(max_length=20, blank=True, null=True)
+    certified_date   = models.CharField(null=True, blank=True)
     placed           = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         self.course_category = get_course_category(self.course_name, self.course_hour)
-        if self.certified:
-            self.claimable_amount = self.fee
-        elif self.trained:
-            self.claimable_amount = self.fee * 70 / 100
+        
+        # Check if course is A-level or O-level
+        is_ao_level = False
+        if self.course_name:
+            course_lower = self.course_name.lower()
+            if 'a level' in course_lower or 'o level' in course_lower or 'a-level' in course_lower or 'o-level' in course_lower:
+                is_ao_level = True
+        
+        # Calculate claimable amount based on course type
+        if is_ao_level:
+            # For A/O level courses: only 100% if certified, otherwise 0
+            if self.certified:
+                self.claimable_amount = self.fee
+            else:
+                self.claimable_amount = 0
         else:
-            self.claimable_amount = 0
+            # For other courses: 100% if certified, 70% if just trained, 0 otherwise
+            if self.certified:
+                self.claimable_amount = self.fee
+            elif self.trained:
+                self.claimable_amount = self.fee * 70 / 100
+            else:
+                self.claimable_amount = 0
+        
         super().save(*args, **kwargs)
 
     def __str__(self):

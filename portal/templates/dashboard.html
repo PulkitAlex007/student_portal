@@ -59,6 +59,29 @@ th:hover {
         <option value="yes">NSQF</option>
         <option value="no">Non NSQF</option>
     </select>
+    <select id="quarterlyFilter">
+        <option value="">All Quarterly</option>
+        <option value="Q1-trained">Q1 - Trained</option>
+        <option value="Q1-certified">Q1 - Certified</option>
+        <option value="Q2-trained">Q2 - Trained</option>
+        <option value="Q2-certified">Q2 - Certified</option>
+        <option value="Q3-trained">Q3 - Trained</option>
+        <option value="Q3-certified">Q3 - Certified</option>
+        <option value="Q4-trained">Q4 - Trained</option>
+        <option value="Q4-certified">Q4 - Certified</option>
+    </select>
+    <select id="yearFilter">
+        <option value="">All Years</option>
+        <option value="2020">2020</option>
+        <option value="2021">2021</option>
+        <option value="2022">2022</option>
+        <option value="2023">2023</option>
+        <option value="2024">2024</option>
+        <option value="2025">2025</option>
+        <option value="2026">2026</option>
+        <option value="2027">2027</option>
+        <option value="2028">2028</option>
+    </select>
     <div style="display:flex;">
     <button onclick="clearFilters()" class="clear-btn" style="margin-right:95px;">Clear</button>
     
@@ -244,8 +267,10 @@ function filterStudents() {
     const placed    = document.getElementById("placedFilter").value;
     const scheme    = document.getElementById("schemeFilter").value;
     const nsqf      = document.getElementById("nsqfFilter").value;
+    const quarterly = document.getElementById("quarterlyFilter").value;
+    const year      = document.getElementById("yearFilter").value;
 
-    const url = `/filter-students/?center=${center}&mode=${mode}&caste=${caste}&trained=${trained}&certified=${certified}&placed=${placed}&scheme=${scheme}&nsqf=${nsqf}`;
+    const url = `/filter-students/?center=${center}&mode=${mode}&caste=${caste}&trained=${trained}&certified=${certified}&placed=${placed}&scheme=${scheme}&nsqf=${nsqf}&quarterly=${quarterly}&year=${year}`;
 
     fetch(url)
         .then(res => res.json())
@@ -439,7 +464,7 @@ function clearFilters() {
 }
 
 ["centerFilter","modeFilter","casteFilter","trainedFilter",
- "certifiedFilter","placedFilter","schemeFilter","nsqfFilter"]
+ "certifiedFilter","placedFilter","schemeFilter","nsqfFilter","quarterlyFilter","yearFilter"]
     .forEach(id => document.getElementById(id).addEventListener("change", filterStudents));
 
 window.onload = filterStudents;
@@ -509,7 +534,7 @@ document.getElementById("searchInput").addEventListener("input", function() {
 });
 function clearFilters() {
     ["centerFilter","modeFilter","casteFilter","trainedFilter",
-     "certifiedFilter","placedFilter","schemeFilter","nsqfFilter", "searchInput"] // Added searchInput
+     "certifiedFilter","placedFilter","schemeFilter","nsqfFilter","quarterlyFilter","yearFilter", "searchInput"]
         .forEach(id => document.getElementById(id).value = "");
     filterStudents();
 }
