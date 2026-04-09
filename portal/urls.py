@@ -15,4 +15,5 @@ urlpatterns = [
     path("input_student/",views.inputView,name="input"),
     path("overview/",views.overview,name="overview"),
     path("view_courses/",views.courses,name="courses"),
+    path('download-filtered-data/', views.download_filtered_data, name='download_filtered_data'),
 ]

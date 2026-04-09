@@ -67,13 +67,42 @@
                         {{ form.placed }}
                         <label class="form-check-label" for="{{ form.placed.id_for_label }}">{{ form.placed.label }}</label>
                     </div>
+                    <div class="form-check">
+                        {{ form.claimed }}
+                        <label class="form-check-label" for="{{ form.claimed.id_for_label }}">{{ form.claimed.label }}</label>
+                    </div>
                 </div>
 
-                {% if form.trained.errors or form.certified.errors or form.placed.errors %}
+                {% if form.trained.errors or form.certified.errors or form.placed.errors or form.claimed.errors %}
                     <div class="text-danger small mt-1">
                         {% if form.trained.errors %}{{ form.trained.errors|striptags }} {% endif %}
                         {% if form.certified.errors %}{{ form.certified.errors|striptags }} {% endif %}
                         {% if form.placed.errors %}{{ form.placed.errors|striptags }}{% endif %}
+                        {% if form.claimed.errors %}{{ form.claimed.errors|striptags }}{% endif %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-6 mb-3" id="trained_date_container" style="display: none;">
+                <label for="{{ form.trained_date.id_for_label }}" class="form-label fw-bold small text-dark mb-1">
+                    Trained Date
+                </label>
+                {{ form.trained_date }}
+                {% if form.trained_date.errors %}
+                    <div class="text-danger small mt-1">
+                        {{ form.trained_date.errors|striptags }}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-6 mb-3" id="certified_date_container" style="display: none;">
+                <label for="{{ form.certified_date.id_for_label }}" class="form-label fw-bold small text-dark mb-1">
+                    Certified Date
+                </label>
+                {{ form.certified_date }}
+                {% if form.certified_date.errors %}
+                    <div class="text-danger small mt-1">
+                        {{ form.certified_date.errors|striptags }}
                     </div>
                 {% endif %}
             </div>
@@ -101,12 +130,45 @@
         }
     }
 
+    function toggleDateFields() {
+        var trainedCheckbox = document.getElementById('id_trained');
+        var certifiedCheckbox = document.getElementById('id_certified');
+        var trainedDateContainer = document.getElementById('trained_date_container');
+        var certifiedDateContainer = document.getElementById('certified_date_container');
+        var trainedDateInput = document.getElementById('id_trained_date');
+        var certifiedDateInput = document.getElementById('id_certified_date');
+
+        if (trainedCheckbox.checked) {
+            trainedDateContainer.style.display = 'block';
+        } else {
+            trainedDateContainer.style.display = 'none';
+            trainedDateInput.value = '';
+        }
+
+        if (certifiedCheckbox.checked) {
+            certifiedDateContainer.style.display = 'block';
+        } else {
+            certifiedDateContainer.style.display = 'none';
+            certifiedDateInput.value = '';
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         var month = document.getElementById('session_month');
         var year = document.getElementById('session_year');
         if (month && year) {
             month.addEventListener('change', updateSessionInput);
             year.addEventListener('change', updateSessionInput);
+        }
+
+        // Add event listeners for status checkboxes
+        var trainedCheckbox = document.getElementById('id_trained');
+        var certifiedCheckbox = document.getElementById('id_certified');
+        if (trainedCheckbox && certifiedCheckbox) {
+            trainedCheckbox.addEventListener('change', toggleDateFields);
+            certifiedCheckbox.addEventListener('change', toggleDateFields);
+            // Initial check
+            toggleDateFields();
         }
     });
 </script>

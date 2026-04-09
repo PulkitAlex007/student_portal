@@ -50,6 +50,15 @@ class studentdata(models.Model):
         ('karkardooma', 'Karkardooma'),
     ]
 
+    COURSE_CHOICES = [
+        ('Basic Computer Course (BCC)', 'Basic Computer Course (BCC)'),
+        ('Course on Computer Concepts (CCC)', 'Course on Computer Concepts (CCC)'),
+        ('CCC+ (Course on Computer Concepts Plus)', 'CCC+ (Course on Computer Concepts Plus)'),
+        ('A-Level Course', 'A-Level Course'),
+        ('O-Level Course', 'O-Level Course'),
+        ('Other Short Term Course', 'Other Short Term Course'),
+    ]
+
     session          = models.CharField(max_length=20, null=True, blank=True)
     batch_code       = models.CharField(max_length=20,null=True,blank=True)
     roll_number      = models.CharField(max_length=20, blank=True, null=True)
@@ -61,7 +70,7 @@ class studentdata(models.Model):
     qualifications   = models.CharField(max_length=50, null=True, blank=True ,choices=HIGHEST_QUALIFICATION)
     address          = models.CharField(max_length=100, null=True, blank=True)
     aadhaar          = models.CharField(max_length=12, null=True, blank=True)
-    course_name      = models.CharField(max_length=100, null=True, blank=True)
+    course_name      = models.CharField(max_length=100, choices=COURSE_CHOICES, null=True, blank=True)
     course_hour      = models.PositiveIntegerField(null=True, blank=True)
     course_category  = models.CharField(max_length=30, blank=True, null=True)
     scheme           = models.CharField(max_length=50, blank=True, null=True)
@@ -77,6 +86,7 @@ class studentdata(models.Model):
     certified        = models.BooleanField(default=False)
     certified_date   = models.CharField(null=True, blank=True)
     placed           = models.BooleanField(default=False)
+    claimed =   models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         self.course_category = get_course_category(self.course_name, self.course_hour)
@@ -113,8 +123,8 @@ class studentdata(models.Model):
 
 class NsqfElectronics(models.Model):
     course_name=models.CharField(max_length=40)
-    nsqf_level=models.PositiveIntegerField(max_length=2)
-    hours=models.PositiveIntegerField(max_length=5)
+    nsqf_level=models.PositiveIntegerField()
+    hours=models.PositiveIntegerField()
 
     def __str__(self):
         return f"{self.course_name}--{self.nsqf_level}--{self.hours}"
@@ -122,8 +132,8 @@ class NsqfElectronics(models.Model):
 
 class NsqfIT(models.Model):
     course_name=models.CharField(max_length=40)
-    nsqf_level=models.PositiveIntegerField(max_length=2)
-    hours=models.PositiveIntegerField(max_length=5)
+    nsqf_level=models.PositiveIntegerField()
+    hours=models.PositiveIntegerField()
 
     def __str__(self):
         return f"{self.course_name}--{self.nsqf_level}--{self.hours}"

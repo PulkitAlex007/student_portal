@@ -7,13 +7,16 @@ from django import forms
 from .models import studentdata
 
 class StudentDataForm(forms.ModelForm):
+    trained_date = forms.DateField(required=False, widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}))
+    certified_date = forms.DateField(required=False, widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}))
+    
     class Meta:
         model = studentdata
         fields = [
             "session", "batch_code", "roll_number", "name", "father_name", "mother_name", "dob", "gender", "address", "qualifications", "aadhaar", "course_name", 
             "course_hour", "scheme", "nsqf", "mode", 
             "caste_category", "center_name", "fee", "fee_date", 
-            "trained", "certified", "placed"
+            "trained", "trained_date", "certified", "certified_date", "placed", "claimed"
         ]
         
         widgets = {
@@ -29,7 +32,7 @@ class StudentDataForm(forms.ModelForm):
             "address": forms.TextInput(attrs={"class": "form-control", "placeholder": "Enter Address", "required": "required"}),
             "qualifications": forms.Select(attrs={"class": "form-select", "required": "required"}),
             "aadhaar": forms.TextInput(attrs={"class": "form-control", "placeholder": "Enter Aadhaar", "maxlength": "12", "required": "required"}),
-            "course_name": forms.TextInput(attrs={"class": "form-control","placeholder": "Enter course name", "required": "required"}),
+            "course_name": forms.Select(attrs={"class": "form-select", "required": "required"}),
             "course_hour": forms.NumberInput(attrs={"class": "form-control","placeholder": "Enter course hours", "required": "required"}),
             "scheme": forms.TextInput(attrs={"class": "form-control","placeholder": "Enter Scheme", "required": "required"}),
             "nsqf": forms.Select(attrs={"class": "form-select","placeholder": "Enter NSQF"}),
@@ -43,8 +46,11 @@ class StudentDataForm(forms.ModelForm):
 
             # Boolean Fields (Checkboxes)
             "trained": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "trained_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
             "certified": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "certified_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
             "placed": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "claimed": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
     def __init__(self, *args, **kwargs):

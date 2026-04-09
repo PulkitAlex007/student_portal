@@ -269,7 +269,6 @@ def filter_students(request):
     trained   = request.GET.get('trained')    # 'true' / 'false' / ''
     certified = request.GET.get('certified')
     placed    = request.GET.get('placed')
-    claimed   = request.GET.get('claimed')
     session   = request.GET.get('session')
     scheme    = request.GET.get('scheme')
     nsqf      = request.GET.get('nsqf')       # 'yes' / 'no'
@@ -290,8 +289,6 @@ def filter_students(request):
         students = students.filter(certified_date__gt='') if certified == 'true' else students.exclude(certified_date__gt='')
     if placed:
         students = students.filter(placed=(placed.lower() == 'true'))
-    if claimed:
-        students = students.filter(claimed=(claimed.lower() == 'true'))
     
 
     if scheme:
@@ -398,7 +395,6 @@ def filter_students(request):
         'certified': 'certified',
         'placed': 'placed',
         'session': 'session',
-        'claimed': 'claimed',
     }
     
     if sort_field in sortable_fields and not isinstance(students, list):
@@ -450,7 +446,6 @@ def filter_students(request):
         'certified':       s.certified,
         'certified_date':  s.certified_date,
         'placed':          s.placed,
-        'claimed':         s.claimed,
         'session':         s.session,
     }
     for s in paginated_students
@@ -483,7 +478,6 @@ def download_filtered_data(request):
     trained   = request.GET.get('trained')
     certified = request.GET.get('certified')
     placed    = request.GET.get('placed')
-    claimed   = request.GET.get('claimed')
     session   = request.GET.get('session')
     scheme    = request.GET.get('scheme')
     nsqf      = request.GET.get('nsqf')
@@ -504,8 +498,6 @@ def download_filtered_data(request):
         students = students.filter(certified_date__gt='') if certified == 'true' else students.exclude(certified_date__gt='')
     if placed:
         students = students.filter(placed=(placed.lower() == 'true'))
-    if claimed:
-        students = students.filter(claimed=(claimed.lower() == 'true'))
 
     if scheme:
         students = students.filter(scheme__icontains=scheme)
@@ -837,9 +829,6 @@ def update_student(request, student_id):
             student.certified_date = ''
         student.certified = new_certified
 
-        # claimed logic
-        student.claimed = body.get('claimed', student.claimed)
-
         student.save()
 
         return JsonResponse({
@@ -848,7 +837,6 @@ def update_student(request, student_id):
             'claimable_amount': float(student.claimable_amount),
             'trained_date': student.trained_date,
             'certified_date': student.certified_date,
-            'claimed': student.claimed,
         })
 
     except json.JSONDecodeError as e:
