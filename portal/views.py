@@ -1,11 +1,14 @@
 import json
 import traceback
-from datetime import datetime
+from datetime import date, datetime
+from statistics import mode
 
 import openpyxl
 from django.contrib import messages
+from django.contrib.admin import options
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -97,79 +100,64 @@ def quarter_from_date(date_str):
 
 def apply_filters(params):
     qs = studentdata.objects.all()
+    center = params.get("center")
+    if center:
+        qs = qs.filter(center_name=center)
 
-    for field, key in [
-        ("center_name", "center"),
-        ("mode", "mode"),
-        ("caste_category", "caste"),
-    ]:
-        if params.get(key):
-            qs = qs.filter(**{field: params[key]})
+    mode = params.get("mode")
+    if mode:
+        qs = qs.filter(mode=mode)
 
-    if params.get("session"):
-        qs = qs.filter(session__icontains=params["session"])
-    if params.get("scheme"):
-        qs = qs.filter(scheme__icontains=params["scheme"])
+    caste = params.get("caste")
+    if caste:
+        qs = qs.filter(caste_category=caste)
 
-    for key, date_field in [
-        ("trained", "trained_date"),
-        ("certified", "certified_date"),
-    ]:
-        if params.get(key):
-            fn = qs.filter if params[key] == "true" else qs.exclude
-            qs = fn(**{f"{date_field}__gt": ""})
+    trained = params.get("trained")
+    if trained:
+        qs = qs.filter(trained=parse_bool(trained))
 
-    if params.get("placed"):
-        qs = qs.filter(placed=parse_bool(params["placed"]))
-    if params.get("claimed"):
-        qs = qs.filter(claimed=parse_bool(params["claimed"]))
+    certified = params.get("certified")
+    if certified:
+        qs = qs.filter(certified=parse_bool(certified))
 
-    if params.get("nsqf") == "yes":
-        qs = qs.exclude(nsqf="").exclude(nsqf__isnull=True)
-    elif params.get("nsqf") == "no":
-        qs = qs.filter(nsqf="") | qs.filter(nsqf__isnull=True)
+    placed = params.get("placed")
+    if placed:
+        qs = qs.filter(placed=parse_bool(placed))
 
-    quarterly = params.get("quarterly")
-    year = params.get("year")
+    claimed = params.get("claimed")
+    if claimed:
+        qs = qs.filter(claimed=parse_bool(claimed))
 
-    if quarterly:
-        q_part, _, status = quarterly.partition("-")
-        # if frontend sends just "Q1" with no status, match either trained or certified
-        if not status:
+    scheme = params.get("scheme")
+    if scheme:
+        qs = qs.filter(scheme=scheme)
 
-            def match(s):
-                qt, _ = quarter_from_date(s.trained_date)
-                qc, _ = quarter_from_date(s.certified_date)
-                return qt == q_part or qc == q_part
-        else:
+    nsqf = params.get("nsqf")
+    if nsqf == "no":
+        qs = qs.filter(nsqf=None)
+    elif nsqf == "yes":
+        qs = qs.filter(nsqf__regex=r".+")
 
-            def match(s):
-                d = s.trained_date if status == "trained" else s.certified_date
-                q, y = quarter_from_date(d)
-                return q == q_part and (not year or y == year)
+    map = {"Q1": "APR", "Q2": "JUL", "Q3": "OCT", "Q4": "JAN"}
+    quarter = params.get("quarterly")
 
-        qs = [s for s in qs if match(s)]
-    elif year:
+    if quarter:
+        month = map.get(quarter)
+        qs = qs.filter(
+            Q(session__startswith=f"{month}-") | Q(trained_date__startswith=f"{month}-")
+        )
+        print(qs)
 
-        def in_year(s):
-            for d in [s.trained_date, s.certified_date]:
-                if d and quarter_from_date(d)[1] == year:
-                    return True
-            return bool(s.session and year in s.session)
-
-        qs = [s for s in qs if in_year(s)]
-
-    sort_field = params.get("sort_field", "name")
-    sort_order = params.get("sort_order", "asc")
-    if sort_field in SORTABLE_FIELDS and not isinstance(qs, list):
-        qs = qs.order_by(f"{'-' if sort_order == 'desc' else ''}{sort_field}")
+    yearly = params.get("year")
+    if yearly:
+        qs = qs.filter(Q(session__contains=yearly) | Q(trained_date__endswith=yearly))
 
     return qs
 
 
 def student_to_dict(s):
     return {
-        "id": s.id,
+        "id": s.id | 0,
         "roll_number": s.roll_number,
         "batch_code": s.batch_code,
         "name": s.name,
@@ -201,6 +189,35 @@ def student_to_dict(s):
     }
 
 
+def xlrow_to_dict(s):
+    return {
+        "roll_number": s.roll_number,
+        "batch_code": s.batch_code,
+        "name": s.name,
+        "father_name": s.father_name,
+        "mother_name": s.mother_name,
+        "dob": s.dob.strftime("%Y-%m-%d") if s.dob else "",
+        "gender": s.gender,
+        "address": s.address,
+        "qualifications": s.qualifications,
+        "aadhaar": s.aadhaar,
+        "course_name": s.course_name,
+        "scheme": s.scheme,
+        "nsqf": s.nsqf,
+        "course_hour": s.course_hour,
+        "center_name": s.center_name,
+        "mode": s.mode,
+        "caste_category": s.caste_category,
+        "fee": float(s.fee),
+        "fee_date": s.fee_date or "",
+        "trained_date": s.trained_date,
+        "certified_date": s.certified_date,
+        "placed": s.placed,
+        "claimed": s.claimed,
+        "session": s.session,
+    }
+
+
 def center_summary(qs):
     summary = {
         "Total": qs.count(),
@@ -223,9 +240,6 @@ def center_summary(qs):
     return summary
 
 
-# ─── Auth ────────────────────────────────────────────────────────────────────
-
-
 def login_view(request):
     if request.method == "POST":
         user = authenticate(
@@ -245,129 +259,90 @@ def logout_view(request):
     return redirect("login")
 
 
-# ─── Dashboard ───────────────────────────────────────────────────────────────
-
-
 @login_required(login_url="/login")
 @ensure_csrf_cookie
 def dashboard(request):
     return render(request, "dashboard.html")
 
 
-# ─── Upload ──────────────────────────────────────────────────────────────────
-
-
 @login_required(login_url="/login")
 def upload(request):
-    if request.method != "POST":
-        return render(request, "upload.html", {"form": ExcelUploadForm()})
-
-    form = ExcelUploadForm(request.POST, request.FILES)
-    if not form.is_valid():
-        return render(request, "upload.html", {"form": form})
-
-    year = form.cleaned_data["year"]
-    session = form.cleaned_data["session"]
-    session_label = f"{session.upper()[:3]}-{year}"
-    success, errors, dupes = 0, 0, 0
-
-    try:
-        wb = openpyxl.load_workbook(request.FILES["file"])
-        ws = wb.active
-        headers = [str(c.value).lower().strip() if c.value else "" for c in ws[1]]
-        existing_rolls = set(studentdata.objects.values_list("roll_number", flat=True))
-
-        for row in ws.iter_rows(min_row=2, values_only=True):
-            if all(c is None for c in row):
-                continue
+    if request.method == "POST":
+        form = ExcelUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            uploaded_file = request.FILES.get("file")
+            session = request.POST.get("session")
+            year = request.POST.get("year")
             try:
-                d = {headers[i]: row[i] for i in range(min(len(headers), len(row)))}
+                wb = openpyxl.load_workbook(uploaded_file)
+                ws = wb.active
+                success = 0
+                dupes = 0
+                errors = 0
+                headers = []
+                for cell in ws[1]:
+                    value = cell.value
+                    if value is not None:
+                        headers.append(str(value).lower().strip())
+                    else:
+                        headers.append("")
 
-                name = str(d.get("name") or "").strip()
-                roll = str(d.get("roll_number") or "").strip()
-                course_name = str(d.get("course_name") or "").strip()
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    row_dict = dict(zip(headers, row))
 
-                if roll in existing_rolls:
-                    dupes += 1
-                    continue
+                    aadhaar = row_dict.get("aadhaar")
+                    if studentdata.objects.filter(aadhaar=aadhaar).exists():
+                        dupes += 1
+                        continue
 
-                try:
-                    course_hour = int(float(str(d.get("course_hour") or 0)))
-                except Exception:
-                    course_hour = 0
+                    name = row_dict.get("name")
+                    course = row_dict.get("course_name")
+                    if not name or not course:
+                        errors += 1
+                        continue
 
-                if not name or not course_name or course_hour <= 0:
-                    errors += 1
-                    continue
+                    try:
+                        studentdata.objects.create(
+                            session=f"{session}-{year}",
+                            roll_number=row_dict.get("roll_number", ""),
+                            batch_code=row_dict.get("batch_code", ""),
+                            name=name,
+                            father_name=row_dict.get("father_name", ""),
+                            mother_name=row_dict.get("mother_name", ""),
+                            dob=row_dict.get("dob", ""),
+                            gender=row_dict.get("gender", ""),
+                            address=row_dict.get("address", ""),
+                            qualifications=row_dict.get("qualifications", ""),
+                            aadhaar=row_dict.get("aadhaar"),
+                            course_name=row_dict.get("course_name"),
+                            scheme=row_dict.get("scheme", ""),
+                            nsqf=row_dict.get("nsqf", ""),
+                            course_hour=int(row_dict.get("course_hour", "")),
+                            mode=row_dict.get("mode", ""),
+                            caste_category=row_dict.get("caste_category", ""),
+                            center_name=row_dict.get("center_name", ""),
+                            fee=row_dict.get("fee", 0),
+                            fee_date=row_dict.get("fee_date", ""),
+                            trained_date=row_dict.get("trained_date", ""),
+                            certified_date=row_dict.get("certified_date", ""),
+                            placed=row_dict.get("placed", False),
+                        )
+                        success += 1
+                    except Exception as e:
+                        print(f"Error on row: {e}")
+                        errors += 1
 
-                mode = str(d.get("mode") or "offline").lower().strip()
-                if mode not in ["offline", "online"]:
-                    mode = "offline"
-
-                caste = str(d.get("caste_category") or "GENERAL").upper().strip()
-                if caste not in ["OBC", "SC", "ST", "PWD", "GENERAL"]:
-                    caste = "GENERAL"
-
-                center = str(d.get("center_name") or "inderlok").lower().strip()
-                if center not in CENTERS:
-                    center = "inderlok"
-
-                aadhaar_val = d.get("aadhaar")
-                aadhaar = (
-                    str(int(float(aadhaar_val))).strip()
-                    if isinstance(aadhaar_val, (int, float))
-                    else str(aadhaar_val or "").strip()
+                messages.success(
+                    request,
+                    f"Uploaded: {success} | Duplicates skipped: {dupes} | Errors: {errors}",
                 )
-
-                trained = parse_bool(d.get("trained", False))
-                certified = parse_bool(d.get("certified", False))
-
-                studentdata(
-                    session=session_label,
-                    batch_code=str(d.get("batch_code") or "").strip().upper(),
-                    roll_number=roll,
-                    name=name,
-                    father_name=str(d.get("father_name") or "").strip(),
-                    mother_name=str(d.get("mother_name") or "").strip(),
-                    dob=parse_date(d.get("dob")),
-                    gender=str(d.get("gender") or "Male").strip(),
-                    address=str(d.get("address") or "").strip(),
-                    qualifications=str(d.get("qualifications") or "").strip(),
-                    aadhaar=aadhaar,
-                    course_name=course_name,
-                    course_hour=course_hour,
-                    scheme=str(d.get("scheme") or "").strip(),
-                    nsqf=str(d.get("nsqf") or "").strip(),
-                    mode=mode,
-                    caste_category=caste,
-                    center_name=center,
-                    fee=float(str(d.get("fee") or 0)),
-                    fee_date=parse_date(d.get("fee_date")),
-                    trained=trained,
-                    trained_date=session_label if trained else "",
-                    certified=certified,
-                    certified_date=session_label if certified else "",
-                    placed=parse_bool(d.get("placed", False)),
-                ).save()
-
-                existing_rolls.add(roll)
-                success += 1
-
             except Exception as e:
-                errors += 1
-                print(traceback.format_exc())
+                print(f"❌ Failed to open Excel: {e}")
 
-    except Exception as e:
-        messages.error(request, f"Error reading file: {e}")
-        return redirect("upload")
+    else:
+        form = ExcelUploadForm()
 
-    messages.success(
-        request, f"Uploaded: {success} | Duplicates skipped: {dupes} | Errors: {errors}"
-    )
-    return redirect("upload")
-
-
-# ─── Filter ──────────────────────────────────────────────────────────────────
+    return render(request, "upload.html", {"form": form})
 
 
 @login_required(login_url="/login")
@@ -391,9 +366,6 @@ def filter_students(request):
             },
         }
     )
-
-
-# ─── Download Filtered Excel ──────────────────────────────────────────────────
 
 
 @login_required(login_url="/login")
@@ -693,9 +665,6 @@ def update_student(request, student_id):
         return JsonResponse({"success": False, "error": str(e)}, status=400)
 
 
-# ─── Input ───────────────────────────────────────────────────────────────────
-
-
 @login_required(login_url="/login")
 def inputView(request):
     if request.method == "POST":
@@ -773,9 +742,6 @@ def overview_data(request):
     return JsonResponse(_overview_context(request.GET.get("session", "")))
 
 
-# ─── Courses ─────────────────────────────────────────────────────────────────
-
-
 def courses(request):
     return render(
         request,
@@ -786,3 +752,177 @@ def courses(request):
             "dlc": Dlc.objects.all(),
         },
     )
+
+
+def add_dropdown(field_name, option_list):
+    col = column_index[field_name]
+    col_letter = get_column_letter(col)
+    # Build the formula: e.g., '"offline,online"'
+    formula = '"' + ",".join(option_list) + '"'
+    dv = DataValidation(type="list", formula1=formula, allow_blank=True)
+    dv.error = "Please pick a value from the list."
+    dv.errorTitle = "Invalid Entry"
+    ws.add_data_validation(dv)
+    # Apply to all rows from 2 to 1,048,576
+    dv.add(col_letter + "2:" + col_letter + "1048576")
+
+
+import openpyxl
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+from openpyxl.styles import Font
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidation
+
+from .models import studentdata
+
+
+@login_required(login_url="/login")
+def sample_upload(request):
+
+    headers = [
+        "roll_number",
+        "batch_code",
+        "name",
+        "father_name",
+        "mother_name",
+        "dob",
+        "gender",
+        "address",
+        "qualifications",
+        "aadhaar",
+        "course_name",
+        "scheme",
+        "nsqf",
+        "course_hour",
+        "mode",
+        "caste_category",
+        "center_name",
+        "fee",
+        "fee_date",
+        "trained_date",
+        "certified_date",
+        "placed",
+    ]
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Student Data Template"
+
+    col_num = 1
+    for header in headers:
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.font = Font(bold=True)
+        col_num = col_num + 1
+
+    ws.freeze_panes = "A2"
+
+    column_index = {}
+    idx = 1
+    for h in headers:
+        column_index[h] = idx
+        idx = idx + 1
+
+    def add_dropdown(field_name, options_list):
+        col_num = column_index[field_name]
+        col_letter = get_column_letter(col_num)
+
+        formula = '"' + ",".join(options_list) + '"'
+
+        dv = DataValidation(type="list", formula1=formula, allow_blank=True)
+        dv.error = "Please select a value from the dropdown list."
+        dv.errorTitle = "Invalid Entry"
+        ws.add_data_validation(dv)
+
+        dv.add(f"{col_letter}2:{col_letter}1048576")
+
+    schemes_qs = studentdata.objects.values_list("scheme", flat=True).distinct()
+
+    scheme_options = []
+    for s in schemes_qs:
+        if s != None:
+            scheme_options.append(s)
+        else:
+            scheme_options.append("NON-NSQF")
+
+    centers = []
+    for i in studentdata.CENTER_CHOICES:
+        centers.append(i[1])
+
+    caste_choices = []
+    for i in studentdata.CASTE_CHOICES:
+        caste_choices.append(i[1])
+
+    mode_choices = []
+    for i in studentdata.MODE_CHOICES:
+        mode_choices.append(i[1])
+
+    gender_choices = []
+    for i in studentdata.GENDER:
+        gender_choices.append(i[1])
+
+    nsqf_choices = []
+    for i in studentdata.NSQF_LEVEL:
+        nsqf_choices.append(i[1])
+
+    course_choioces = []
+
+    for i in studentdata.COURSE_CHOICES:
+        course_choioces.append(i[1])
+
+    qualification_choices = []
+    for i in studentdata.HIGHEST_QUALIFICATION:
+        qualification_choices.append(i[1])
+    add_dropdown("center_name", centers)
+    add_dropdown("mode", mode_choices)
+    add_dropdown("caste_category", caste_choices)
+    add_dropdown("placed", ["TRUE", "FALSE"])
+    add_dropdown("gender", gender_choices)
+    add_dropdown("nsqf", nsqf_choices)
+    add_dropdown("scheme", scheme_options)
+    add_dropdown("course_name", course_choioces)
+    add_dropdown("qualifications", qualification_choices)
+
+    sample_row = [
+        "NIELIT0001",
+        "Batch-2024-001",
+        "Aarav Sharma",
+        "Rajesh Sharma",
+        "Sunita Sharma",
+        "1998-05-12",
+        "Male",
+        "12/4 Rohini Delhi",
+        "Graduation",
+        "123456789012",
+        "Python Programming",
+        "PMKVY",
+        "Level 4",
+        "120",
+        "offline",
+        "OBC",
+        "inderlok",
+        "5000",
+        "2024-01-10",
+        "JAN-2024",
+        "MAR-2024",
+        "TRUE",
+    ]
+    sample_col = 1
+    for value in sample_row:
+        ws.cell(row=2, column=sample_col, value=value)
+        sample_col = sample_col + 1
+
+    col = 1
+    while col <= len(headers):
+        letter = get_column_letter(col)
+        ws.column_dimensions[letter].width = 18
+        col = col + 1
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = (
+        'attachment; filename="student_upload_template.xlsx"'
+    )
+    wb.save(response)
+    return response
